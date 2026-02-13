@@ -30,10 +30,7 @@ class GameState extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'round_started_at' => 'datetime',
-        'is_victory' => 'boolean',
-        'primordial_seal_progress' => 'integer',
-        'current_day' => 'integer',
-        'current_turn_in_day' => 'integer'
+        'is_victory' => 'boolean', // NUEVO
     ];
 
     public static function initialize()
@@ -137,12 +134,9 @@ class GameState extends Model
     public function getNextSealCost()
     {
         $nextUnit = $this->primordial_seal_progress + 1;
-        // Escalado de dificultad: aumenta significativamente después de la mitad
-        $multiplier = $nextUnit > 5 ? 25 : 10;
-        
         return [
-            'adamantita' => $nextUnit * $multiplier,
-            'oricalco' => $nextUnit * $multiplier,
+            'adamantita' => $nextUnit * 10,
+            'oricalco' => $nextUnit * 10,
             'unit_number' => $nextUnit
         ];
     }
