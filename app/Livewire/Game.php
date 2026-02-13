@@ -13,7 +13,7 @@ class Game extends Component
 {
     public $currentDay, $currentTurnInDay, $turnsPerDay, $maxDays;
     public $gameOver = false, $dayComplete = false, $isVictory = false;
-    public $countdown = 2; // Sincronizado con el poll
+    public $countdown = 2; // El latido del juego
     public $sealProgress = 0;
     public $nextSealCost = [];
     
@@ -28,18 +28,18 @@ class Game extends Component
     {
         if ($this->gameOver || $this->dayComplete || $this->isVictory) return;
 
-        $gameState = GameState::first();
-        
-        // Lógica de contador blindada: Solo procesamos turno si el contador llega a 0
+        // Lógica de "Un solo latido":
+        // El poll de 1s descuenta el contador. Solo cuando llega a 1 procesamos el turno.
         if ($this->countdown <= 1) {
+            $gameState = GameState::first();
             $gameState->processTurn();
-            $this->currentTurnInDay = $gameState->current_turn_in_day;
             
+            // Sincronizamos valores tras procesar
+            $this->currentTurnInDay = $gameState->current_turn_in_day;
             if ($this->currentTurnInDay >= $this->turnsPerDay) {
                 $this->dayComplete = true;
             }
-            // Reset contador al valor original configurado
-            $this->countdown = 2; 
+            $this->countdown = 3; // Reset a 3 segundos para el próximo ciclo
         } else {
             $this->countdown--;
         }
@@ -50,6 +50,8 @@ class Game extends Component
     public function loadGameData()
     {
         $gameState = GameState::first();
+        if (!$gameState) return;
+
         $this->currentDay = $gameState->current_day;
         $this->currentTurnInDay = $gameState->current_turn_in_day;
         $this->turnsPerDay = $gameState->turns_per_day;
@@ -58,13 +60,16 @@ class Game extends Component
         $this->isVictory = $gameState->is_victory;
         $this->nextSealCost = $gameState->getNextSealCost();
 
-        $allResources = Resource::with(['resourceType.recipes.inputs.resourceType', 'resourceType.recipes.automation'])->get();
+        // Corregido: Usamos 'recipesAsOutput' que es el nombre real en ResourceType
+        $allResources = Resource::with([
+            'resourceType.recipesAsOutput.inputs.resourceType', 
+            'resourceType.recipesAsOutput.automation'
+        ])->get();
 
         $this->resourcesByTier = $allResources->groupBy(fn($r) => $r->resourceType->tier)
             ->map(fn($tier) => $tier->map(fn($res) => $this->formatResource($res, $allResources)))
             ->toArray();
 
-        // Upgrades con toda la info de costos y requisitos
         $this->upgradesByCategory = Upgrade::with(['costs.resourceType', 'requiresUpgrade'])
             ->get()
             ->map(fn($u) => [
@@ -84,7 +89,8 @@ class Game extends Component
     }
 
     private function formatResource($res, $allResources) {
-        $recipe = $res->resourceType->recipes->first();
+        // Obtenemos la primera receta que produzca este recurso
+        $recipe = $res->resourceType->recipesAsOutput->first();
         $upgradeCost = pow(2, $res->production_level);
         return [
             'id' => $res->id,
@@ -108,11 +114,15 @@ class Game extends Component
         $upgrade = Upgrade::find($id);
         if ($upgrade && $upgrade->purchase()) {
             $this->loadGameData();
-            session()->flash('hotkey_message', "Mejora adquirida: {$upgrade->name}");
         }
     }
 
     public function upgradeResource($id) {
         if(Resource::find($id)?->upgradeProductionLevel()) $this->loadGameData();
+    }
+
+    public function toggleRecipeAutomation($id) {
+        $a = RecipeAutomation::where('recipe_id', $id)->first();
+        if($a) { $a->is_active = !$a->is_active; $a->save(); $this->loadGameData(); }
     }
 }

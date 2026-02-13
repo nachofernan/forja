@@ -36,4 +36,10 @@ class ResourceType extends Model
     {
         return $this->hasMany(RecipeInput::class);
     }
+
+    // Recetas que usan este recurso como ingrediente
+    public function recipesAsInput()
+    {
+        return $this->hasMany(RecipeInput::class, 'resource_type_id');
+    }
 }
