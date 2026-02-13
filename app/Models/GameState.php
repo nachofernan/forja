@@ -28,10 +28,11 @@ class GameState extends Model
     ];
 
     protected $casts = [
-        'started_at' => 'datetime',
-        'round_started_at' => 'datetime',
-        'is_victory' => 'boolean', // NUEVO
-    ];
+    'started_at' => 'datetime',
+    'round_started_at' => 'datetime',
+    'is_victory' => 'boolean',
+    'primordial_seal_progress' => 'integer'
+];
 
     public static function initialize()
     {
@@ -134,9 +135,11 @@ class GameState extends Model
     public function getNextSealCost()
     {
         $nextUnit = $this->primordial_seal_progress + 1;
+        $multiplier = $nextUnit > 5 ? 15 : 10;
+        
         return [
-            'adamantita' => $nextUnit * 10,
-            'oricalco' => $nextUnit * 10,
+            'adamantita' => $nextUnit * $multiplier,
+            'oricalco' => $nextUnit * $multiplier,
             'unit_number' => $nextUnit
         ];
     }
